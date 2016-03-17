@@ -129,7 +129,7 @@ class StreamIO extends AbstractIO
                 STREAM_CLIENT_CONNECT,
                 $this->context
             );
-        } catch (\Exception $e) {
+        } catch (\ErrorException $e) {
             restore_error_handler();
             throw $e;
         }
@@ -204,7 +204,14 @@ class StreamIO extends AbstractIO
             }
 
             set_error_handler(array($this, 'error_handler'));
-            $buffer = fread($this->sock, ($len - $read));
+
+            try {
+                $buffer = fread($this->sock, ($len - $read));
+            } catch (\ErrorException $e) {
+                restore_error_handler();
+                throw $e;
+            }
+
             restore_error_handler();
 
             if ($buffer === false) {
@@ -261,14 +268,21 @@ class StreamIO extends AbstractIO
             }
 
             set_error_handler(array($this, 'error_handler'));
-            // OpenSSL's C library function SSL_write() can balk on buffers > 8192
-            // bytes in length, so we're limiting the write size here. On both TLS
-            // and plaintext connections, the write loop will continue until the
-            // buffer has been fully written.
-            // This behavior has been observed in OpenSSL dating back to at least
-            // September 2002:
-            // http://comments.gmane.org/gmane.comp.encryption.openssl.user/4361
-            $buffer = fwrite($this->sock, $data, 8192);
+
+            try {
+                // OpenSSL's C library function SSL_write() can balk on buffers > 8192
+                // bytes in length, so we're limiting the write size here. On both TLS
+                // and plaintext connections, the write loop will continue until the
+                // buffer has been fully written.
+                // This behavior has been observed in OpenSSL dating back to at least
+                // September 2002:
+                // http://comments.gmane.org/gmane.comp.encryption.openssl.user/4361
+                $buffer = fwrite($this->sock, $data, 8192);
+            } catch (\ErrorException $e) {
+                restore_error_handler();
+                throw $e;
+            }
+
             restore_error_handler();
 
             if ($buffer === false) {
@@ -319,8 +333,6 @@ class StreamIO extends AbstractIO
              // it's allowed while processing signals
             return null;
         }
-
-        restore_error_handler();
 
         // raise all other issues to exceptions
         throw new \ErrorException($errstr, 0, $errno, $errfile, $errline);
@@ -399,7 +411,14 @@ class StreamIO extends AbstractIO
         $result = false;
 
         set_error_handler(array($this, 'error_handler'));
-        $result = stream_select($read, $write, $except, $sec, $usec);
+
+        try {
+            $result = stream_select($read, $write, $except, $sec, $usec);
+        } catch (\ErrorException $e) {
+            restore_error_handler();
+            throw $e;
+        }
+
         restore_error_handler();
 
         return $result;
